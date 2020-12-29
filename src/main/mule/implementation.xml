@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:os="http://www.mulesoft.org/schema/mule/os" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/os http://www.mulesoft.org/schema/mule/os/current/mule-os.xsd">
+	<flow name="orcldb-to-sfdc" doc:id="3882cd61-48b2-4847-81c8-c0d5e7296c9f" >
+		<set-variable value="#[attributes.uriParams.entity]" doc:name="Set Variable" doc:id="089e9ae7-0133-4152-aabd-f7e7d99f3cff" variableName="entity"/>
+		<choice doc:name="Choice" doc:id="a598d7b3-7f04-49dc-bbc6-e7e480b71244" >
+			<when expression='#[vars.entity=="accounts"]'>
+				<flow-ref doc:name="accounts-to-sfdc" doc:id="c1597b8a-8f05-4459-a0d1-bce96ce4be6b" name="accounts-to-sfdc" />
+			</when>
+			<when expression='#[vars.entity == "flights"]'>
+				<flow-ref doc:name="flights-to-sfdc" doc:id="e1d1ef4a-5829-4fad-af18-239aa361468e" name="flights-to-sfdc"/>
+			</when>
+			<otherwise >
+				<ee:transform doc:name="No such entity" doc:id="9fb20be9-4164-40ba-a0fb-7d11e4e5fe7e">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+	message: "Entity " ++ vars.entity as String ++ " does not exist"
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</otherwise>
+		</choice>
+		<logger level="INFO" doc:name="Logger" doc:id="5027ddc3-faff-4fb5-b3ec-2f9b95cd9517" message='#[payload.message]' />
+	</flow>
+	<flow name="accounts-to-sfdc" doc:id="b22febee-1158-4f87-b4eb-2e2630f47b85">
+		<os:retrieve doc:name="lastAccountId" doc:id="49e513ec-5ba3-4e5f-9fe9-5f2681b09816" key="lastAccountId" target="lastAccountId">
+			<os:default-value><![CDATA[0]]></os:default-value>
+		</os:retrieve>
+		<db:select doc:name="accounts" doc:id="574ec214-4eea-41f3-af86-f57dca398124" config-ref="Database_Config">
+			<db:sql><![CDATA[SELECT * FROM SYS.ACCOUNTS WHERE account_ID > :lastAccountId]]></db:sql>
+			<db:input-parameters><![CDATA[#[{lastAccountId: vars.lastAccountId}]]]></db:input-parameters>
+		</db:select>
+		<choice doc:name="Choice" doc:id="4cb45fd2-9c38-42c8-9bfc-1abc05d3e7f6">
+			<when expression="#[not isEmpty(payload)]">
+				<os:store doc:name="lastAccountId" doc:id="50e6f6a6-7239-4d03-bba5-643d16a94ad1" key="lastAccountId">
+			<os:value><![CDATA[#[max(payload.*account_ID)]]]></os:value>
+		</os:store>
+				<ee:transform doc:name="Account ORCLDB to SFDC" doc:id="5c2ea281-0342-45f1-beb1-a460c13d2f40">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload map ( payload01 , indexOfPayload01 ) -> {
+	Name: (payload01.FIRST_NAME
+default "") ++ " " ++ (payload01.LAST_NAME default ""),
+	BillingStreet: payload01.STREET,
+	BillingCity: payload01.CITY,
+	BillingPostalCode: payload01.POSTAL,
+	BillingCountry: payload01.COUNTRY
+}]]></ee:set-payload>
+			</ee:message>
+					<ee:variables>
+						<ee:set-variable variableName="numOfRecords"><![CDATA[%dw 2.0
+output application/java
+---
+sizeOf(payload)]]></ee:set-variable>
+					</ee:variables>
+		</ee:transform>
+				<salesforce:create doc:name="Account" type="Account" doc:id="ecca5646-2274-4299-80f3-da91f459b468" config-ref="Salesforce_Config" />
+				<ee:transform doc:name="Records have been processed" doc:id="df76a0fe-1236-4179-a218-c6bc6d2d6937">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+	message: vars.numOfRecords as String ++ " records have been processed"
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</when>
+			<otherwise>
+				<ee:transform doc:name="No new records" doc:id="9d115dee-45fa-4815-9488-c94af1a602d7">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+	message: "No new records"
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</otherwise>
+		</choice>
+	</flow>
+	<flow name="flights-to-sfdc" doc:id="a16f8578-5953-4619-84bb-aa8d24385eb2" >
+		<os:retrieve doc:name="lastFlightId" doc:id="3a060caf-e451-41fe-91be-6e8e9fffae7e" key="lastFlightId" target="lastFlightId" >
+			<os:default-value ><![CDATA[0]]></os:default-value>
+		</os:retrieve>
+		<db:select doc:name="Flights" doc:id="0c8d7bb5-2e4c-4ca9-8756-f030f5ea4de5" config-ref="Database_Config" >
+			<db:sql ><![CDATA[SELECT * FROM SYS.FLIGHTS WHERE flight_ID > :lastFlightId]]></db:sql>
+			<db:input-parameters ><![CDATA[#[{lastFlightId: vars.lastFlightId}]]]></db:input-parameters>
+		</db:select>
+		<choice doc:name="Choice" doc:id="8b00d06d-84a3-4ce4-8258-9b6412b3597c" >
+			<when expression="#[not isEmpty(payload)]" >
+				<os:store doc:name="lastFlightId" doc:id="b315c5a7-919b-485a-bf5f-20dcbf579a0d" key="lastFlightId" >
+					<os:value ><![CDATA[#[max(payload.*flight_ID)]]]></os:value>
+				</os:store>
+				<ee:transform doc:name="Flight ORCLDB to SFDC" doc:id="71140227-a3ce-4f91-979a-bc6aa223ce3c" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+payload map ( payload01 , indexOfPayload01 ) -> {
+	AIRLINE__c: payload01.AIRLINE,
+	code__c: payload01.FLIGHT_CODE,
+	origin__c: payload01.FROM_AIRPORT_CODE,
+	destination__c: payload01.TO_AIRPORT_CODE,
+	departureDate__c: payload01.DEPARTURE_DATE,
+	totalSeats__c: payload01.TOTAL_SEATS,
+	occupiedSeats__c: payload01.TOTAL_SEATS as Number - payload01.EMPTY_SEATS as Number,
+	price__c: payload01.PRICE,
+	planeType__c: payload01.PLANETYPE
+}]]></ee:set-payload>
+					</ee:message>
+					<ee:variables >
+						<ee:set-variable variableName="numOfRecords" ><![CDATA[%dw 2.0
+output application/java
+---
+sizeOf(payload)]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+				<salesforce:create type="Flight__c" doc:name="Flight" doc:id="bf1ae9f2-7335-4f25-8593-c49d593db3aa" config-ref="Salesforce_Config" />
+				<ee:transform doc:name="Records have been processed" doc:id="6848f9fd-4f3f-472c-bc63-33c7bdd5ad3a" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	message: vars.numOfRecords as String ++ " records have been processed"
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</when>
+			<otherwise >
+				<ee:transform doc:name="No new records" doc:id="e142bf26-e4bb-425a-9fb9-f2e6d7f2ddba" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	message: "No new records"
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</otherwise>
+		</choice>
+	</flow>
+</mule>

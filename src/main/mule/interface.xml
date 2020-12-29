@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd">
+	<flow name="http-orcldb-to-sfdc" doc:id="f603ba39-73e3-4e78-8eba-2407130a681d" >
+		<http:listener doc:name="GET /(entity)/to-sfdc" doc:id="a5502983-3c33-4b90-b591-512dc9e1de09" config-ref="HTTP_Listener_config" path="/{entity}/to-sfdc" allowedMethods="GET">
+			<http:error-response statusCode="#[vars.httpStatus default 500]" >
+				<http:body ><![CDATA[#[payload]]]></http:body>
+			</http:error-response>
+		</http:listener>
+		<flow-ref doc:name="orcldb-to-sfdc" doc:id="73492fa9-4248-4f37-8d43-e685ebb9b0f2" name="orcldb-to-sfdc"/>
+	</flow>
+</mule>
