@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:secure-properties="http://www.mulesoft.org/schema/mule/secure-properties" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/secure-properties http://www.mulesoft.org/schema/mule/secure-properties/current/mule-secure-properties.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="bda5d669-cc3b-4539-a48d-f9627d8555e1" >
+		<http:listener-connection host="${secure::http.host}" port="${secure::http.port}" />
+	</http:listener-config>
+	<salesforce:sfdc-config name="Salesforce_Config" doc:name="Salesforce Config" doc:id="3be86997-ed96-423b-8c4e-2224e7597434" >
+		<salesforce:basic-connection username="${secure::sfdc.username}" password="${secure::sfdc.password}" securityToken="${secure::sfdc.token}" />
+	</salesforce:sfdc-config>
+	<db:config name="Database_Config" doc:name="Database Config" doc:id="09612b1e-d655-4d95-ac5e-c02a56762241" >
+		<db:oracle-connection host="${secure::orcldb.host}" port="${secure::orcldb.port}" user="${secure::orcldb.username}" password="${secure::orcldb.password}" instance="${secure::orcldb.sid}"/>
+	</db:config>
+	<configuration doc:name="Configuration" doc:id="36f5601d-a81d-4aa6-b974-4db9195ea859" defaultErrorHandler-ref="globalErrorHandler" />
+	<secure-properties:config name="Secure_Properties_Config" doc:name="Secure Properties Config" doc:id="62a25aa9-2612-4442-ac32-be76da1125f5" file="${env}-conf.yaml" key="mulesoft">
+		<secure-properties:encrypt algorithm="Blowfish" />
+	</secure-properties:config>
+	<global-property doc:name="Global Property" doc:id="c816c3b7-4b6e-4146-8971-c94f0eb1b883" name="env" value="dev" />
+	<error-handler name="globalErrorHandler" doc:id="9001a802-1194-456a-9452-a4c3cd92a612" >
+		<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="9d194547-a11a-41b3-8eca-aad9c017c639" type="ANY">
+			<set-variable value="500" doc:name="Set Variable" doc:id="a321beb8-0796-4967-b483-e2183d0dbc39" variableName="shttpStatus"/>
+			<ee:transform doc:name="Transform Message" doc:id="e8e1e6f3-18aa-4241-8d3a-e5e224fe3e86" >
+				<ee:message >
+					<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	message: error.description
+}]]></ee:set-payload>
+				</ee:message>
+			</ee:transform>
+		</on-error-propagate>
+	</error-handler>
+</mule>

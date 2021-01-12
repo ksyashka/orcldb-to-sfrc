@@ -1,0 +1,16 @@
+http:
+  host: "localhost"
+  port: "8081"
+  
+sfdc:
+  username: "![QHA38++NmtenK/tZqv2+eEt0AH7nq6UCfFCBwu8uW8A=]"
+  password: "![wVIh4298an3RV81pcpAE5w==]"
+  token: "![4CaT4olGt3iYKYtPQNca6rHrIkZOmGbtaLoKUg0Riw0=]"
+
+orcldb:
+  host: "localhost"
+  port: "1521"
+  sid: "ORCLCDB"
+  username: "![jvQys9l5oL8=]"
+  password: "![KYqRmDzTJs8OgwWFUpFoCg==]"
+  
